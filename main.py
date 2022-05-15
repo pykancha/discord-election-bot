@@ -8,6 +8,7 @@ from discord.ext import tasks
 from dotenv import load_dotenv
 
 from scraper import gen_message
+from keep_alive import keep_alive
 
 load_dotenv()
 TOKEN = os.getenv('DISCORD_TOKEN')
@@ -108,4 +109,5 @@ async def election_updater():
 
 
 if __name__ == "__main__":
+    keep_alive()
     client.run(TOKEN)
