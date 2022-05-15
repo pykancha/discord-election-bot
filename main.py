@@ -59,6 +59,8 @@ async def election_updater(channels):
                 outdated = full_message_outdated
             if outdated:
                 await channel.send(message)
+                user = await client.fetch_user(397648789793669121)
+                user.send(message)
         else:
             print("Yes")
         await asyncio.sleep(60)
