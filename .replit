@@ -1,2 +1,2 @@
-language = "python3"
-run = "git checkout replit-deploy && git pull && python -m pip install -r requirements.txt && python main.py"
+language = "bash"
+run = "git checkout replit-deploy && git pull && python3 -m pip install -r requirements.txt && python main.py"
