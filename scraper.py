@@ -14,12 +14,12 @@ def gen_message(full=False):
     footer = ''
     text = ''
     for city, data in city_data_map.items():
-        text += construct_msg(city, data) if city!='Kathmandu' else construct_msg(city, data, concat_name=True)
+        text += construct_msg(city, data, full=full) if city!='Kathmandu' else construct_msg(city, data, concat_name=True, full=full)
 
     submission_body = f"{header}\n{text}\n{footer}"
     return submission_body
 
-def construct_msg(city, data, concat_name=False):
+def construct_msg(city, data, concat_name=False, full=False):
     mayor = f"**{city}**\n**Mayor**\n"
     get_name = lambda x: x['candidate-name'] if not concat_name else x['candidate-name'].split(' ')[0]
     candidates = [f"- {get_name(i)} = {i['vote-numbers']}" for i in data['mayor']]
@@ -27,6 +27,6 @@ def construct_msg(city, data, concat_name=False):
     deputy = "\n**Deputy Mayor**\n"
     candidates = [f"- {i['candidate-name'].split(' ')[0]} = {i['vote-numbers']}" for i in data['deputy']]
     deputy = deputy + "\n".join(candidates) if candidates else ""
-    body = f'{mayor}\n{deputy}\n\n' if deputy else f'{mayor}\n\n'
+    body = f'{mayor}\n{deputy}\n\n' if (deputy and full) else f'{mayor}\n\n'
     return body
 
