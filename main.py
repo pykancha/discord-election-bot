@@ -105,8 +105,8 @@ async def election_updater():
             ids = [i.id for i in channels]
             json.dump(ids, wf)
             
-        #if full_message_outdated or message_outdated:
-        os.system('git add . && git commit -m "updates data"')
+        if full_message_outdated or message_outdated:
+            os.system('git add . && git commit -m "updates data"')
             
         await asyncio.sleep(120)
 
