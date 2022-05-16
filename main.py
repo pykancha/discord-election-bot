@@ -70,11 +70,12 @@ async def election_updater():
         message = ''
         outdated = message_outdated
         if message_outdated:
-            user = await client.fetch_user(397648789793669121)
-            try:
-                await user.send(short_message)
-            except Exception as e:
-                print("dm fialed", e)
+            for user_id in [528240871481540611, 397648789793669121]: 
+                user = await client.fetch_user(user_id)
+                try:
+                    await user.send(short_message)
+                except Exception as e:
+                    print("dm fialed", e)
 
         new_channel = False
         for channel in channels:
