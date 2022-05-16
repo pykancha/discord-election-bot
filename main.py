@@ -69,10 +69,10 @@ async def election_updater():
 
         message = ''
         outdated = message_outdated
-        if full_message_outdated:
+        if message_outdated:
             user = await client.fetch_user(397648789793669121)
             try:
-                await user.send(full_message)
+                await user.send(message)
             except Exception as e:
                 print("dm fialed", e)
 
