@@ -8,7 +8,7 @@ def gen_message(full=False):
         Lalitpur=get_lalitpur_votes,
     ) 
     if not full:
-        city_data_map = dict(Kathmandu=get_ktm_votes())
+        city_data_map = dict(Kathmandu=get_ktm_votes)
 
     header = "source: election dot ekantipur dot com\n"
     #footer = """^^contribute:  [Bot code](https://github.com/pykancha/reddit-bots) |  [Api code](https://github.com/pykancha/election-api) | [Api url for your personal automation](https://g7te1m.deta.dev/)"""
