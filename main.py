@@ -24,7 +24,7 @@ async def on_ready():
         )
     election_updater.start()
 
-@tasks.loop(minutes=1)
+@tasks.loop(seconds=30, minutes=1)
 async def election_updater():
     updated_data = await election_info_updated()
     if updated_data:
