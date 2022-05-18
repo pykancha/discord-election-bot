@@ -22,8 +22,9 @@ async def on_ready():
     print(
             f'{client.user} is connected to the following guild:\n'
         )
-    await election_updater()
+    election_updater.start()
 
+@tasks.loop(minutes=1)
 async def election_updater():
     while True:
         updated_data = await election_info_updated()
