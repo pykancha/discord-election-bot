@@ -17,6 +17,7 @@ TOKEN = os.getenv('DISCORD_TOKEN')
 # Graph and metadata
 
 client = discord.Client()
+
 @client.event
 async def on_ready():
     print(
@@ -24,7 +25,7 @@ async def on_ready():
         )
     election_updater.start()
 
-@tasks.loop(seconds=30, minutes=1)
+@tasks.loop(minutes=2)
 async def election_updater():
     updated_data = await election_info_updated()
     if updated_data:
@@ -33,10 +34,10 @@ async def election_updater():
         print("No updates")
 
     full_updated_data = await election_info_updated(full=True)
-    if full_updated_data:
-        await send_message(full_updated_data, to_me=True)
-    else:
-        print("No Full updates")
+    #if full_updated_data:
+    #    await send_message(full_updated_data, to_me=True)
+    #else:
+    #    print("No Full updates")
 
     if updated_data or full_updated_data:
         os.system('git add . && git commit -m "updates data"')
