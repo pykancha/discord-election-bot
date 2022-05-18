@@ -26,23 +26,20 @@ async def on_ready():
 
 @tasks.loop(minutes=1)
 async def election_updater():
-    while True:
-        updated_data = await election_info_updated()
-        if updated_data:
-            await send_message(updated_data)
-        else:
-            print("No updates")
+    updated_data = await election_info_updated()
+    if updated_data:
+        await send_message(updated_data)
+    else:
+        print("No updates")
 
-        full_updated_data = await election_info_updated(full=True)
-        if full_updated_data:
-            await send_message(full_updated_data, to_me=True)
-        else:
-            print("No Full updates")
+    full_updated_data = await election_info_updated(full=True)
+    if full_updated_data:
+        await send_message(full_updated_data, to_me=True)
+    else:
+        print("No Full updates")
 
-        if updated_data or full_updated_data:
-            os.system('git add . && git commit -m "updates data"')
-        
-        await asyncio.sleep(60)
+    if updated_data or full_updated_data:
+        os.system('git add . && git commit -m "updates data"')
 
 
 @client.event
