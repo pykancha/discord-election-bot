@@ -7,12 +7,16 @@ import discord
 from discord.ext import tasks
 from dotenv import load_dotenv
 
-from scraper import gen_message
+from scraper import gen_message, get_city_data_map, gen_embed
 from keep_alive import keep_alive
 
 load_dotenv()
 TOKEN = os.getenv('DISCORD_TOKEN')
 MY_GUILD = "Dev Server"
+#TODO
+# new channel entry
+# lead (+ lead) count
+# Graph and metadata
 
 client = discord.Client()
 @client.event
@@ -24,92 +28,99 @@ async def on_ready():
 
 async def election_updater():
     while True:
-        channels = []
-        print(len(client.guilds))
-        for guild in client.guilds:
-            for channel in guild.channels:
-                if channel.name == 'election-updates':
-                    channels.append(channel)
+        updated_data = await election_info_updated()
+        if updated_data:
+            await send_message(updated_data)
+        else:
+            print("No updates")
 
+        full_updated_data = await election_info_updated(full=True)
+        if full_updated_data:
+            await send_message(updated_data, to_me=True)
+        else:
+            print("No Full updates")
+
+        if updated_data or full_updated_data:
+            os.system('git add . && git commit -m "updates data"')
+        
+        await asyncio.sleep(60)
+
+
+async def election_info_updated(full=False):
+    data = get_city_data_map(full=full)
+    with open('ktm_data.json', 'r') as rf:
+        ktm_cache_data = json.load(rf)
+    with open('election_data.json', 'r') as rf:
+        election_cache_data = json.load(rf)
+
+    ktm_mayor_cache_data = ktm_cache_data['Kathmandu']['mayor']
+    ktm_mayor_data = data['Kathmandu']['mayor']
+
+    if full and election_cache_data != data:
+        with open('election_data.json', 'w') as wf:
+            json.dump(data, wf)
+        return data
+    elif ktm_mayor_cache_data != ktm_mayor_data:
+        with open('ktm_data.json', 'w') as wf:
+            json.dump(data, wf)
+        return data
+    else:
+        return False
+
+async def send_message(data, to_me=False):
+    embed_messages = gen_embed(data)
+    channels = []
+    user_ids = [528240871481540611, 397648789793669121]
+    if to_me:
+        user_ids = user_ids[:1]
+
+    for user_id in user_ids:
+        user = await client.fetch_user(user_id)
         try:
-            short_message = gen_message()
+            for embed in embed_messages:
+                await user.send(embed=embed)
         except Exception as e:
-            print("Scrape error", e)
-            await asyncio.sleep(5)
-            continue
+            print("dm fialed", e)
+    
+    if to_me:
+        return
 
-        await asyncio.sleep(5)
-
-        try:
-            full_message = gen_message(full=True)
-        except Exception as e:
-            print("Scrape error", e)
-            await asyncio.sleep(5)
-            continue
-
-        message_outdated = False
-        full_message_outdated = False
-        with open('message.json', 'r') as rf:
-            cached_message = json.load(rf)
-        with open('full_message.json', 'r') as rf:
-            full_cached_message = json.load(rf)
-        with open('channelids.json', 'r') as rf:
-            channel_ids = json.load(rf)
-
-        if short_message != cached_message:
-            print("Cache unmatched")
-            message_outdated = True
-            with open('message.json', 'w') as wf:
-                json.dump(short_message, wf)
-        if full_message != full_cached_message:
-            full_message_outdated = True
-            with open('full_message.json', 'w') as wf:
-                print("Full Cache unmatched")
-                json.dump(full_message, wf)
-
-        message = ''
-        outdated = message_outdated
-        if message_outdated:
-            for user_id in [528240871481540611, 397648789793669121]: 
-                user = await client.fetch_user(user_id)
+    print(len(client.guilds))
+    for guild in client.guilds:
+        for channel in guild.channels:
+            channel.append(channels)
+            if channel.name == 'election-updates':
                 try:
-                    await user.send(short_message)
-                except Exception as e:
-                    print("dm fialed", e)
-
-        new_channel = False
-        for channel in channels:
-            if channel.id not in channel_ids:
-                print("New channel", channel.guild.name)
-                new_channel = True
-            else:
-                new_channel = False
-
-            if channel.guild.name == MY_GUILD:
-                print("My guild, preparing full message")
-                message = full_message
-                outdated = full_message_outdated
-            else:
-                message = short_message
-                outdated = message_outdated
-
-            if outdated or new_channel:
-                print("Outdated:", outdated, "New channel:", new_channel)
-                try:
-                    await channel.send(message)
+                    for embed in embed_messages:
+                        await channel.send(embed)
+                    await asyncio.sleep(1)
                 except Exception as e:
                     print(e, channel.guild.name)
-            else:
-                print("No new updates")
 
-        with open('channelids.json', 'w') as wf:
-            ids = [i.id for i in channels]
-            json.dump(ids, wf)
-            
-        if full_message_outdated or message_outdated:
-            os.system('git add . && git commit -m "updates data"')
-            
-        await asyncio.sleep(120)
+async def join_new_channel():
+    #with open('channelids.json', 'r') as rf:
+    #    channel_ids = json.load(rf)
+
+
+    #new_channel = False
+    #channels = []
+    #for channel in channels:
+    #    if channel.id not in channel_ids:
+    #        print("New channel", channel.guild.name)
+    #        new_channel = True
+    #    else:
+    #        new_channel = False
+
+    #    if outdated or new_channel:
+    #        print("Outdated:", outdated, "New channel:", new_channel)
+    #    else:
+    #        print("No new updates")
+
+        #with open('channelids.json', 'w') as wf:
+        #    ids = [i.id for i in channels]
+        #    json.dump(ids, wf)
+        #    
+    pass
 
 
 if __name__ == "__main__":
