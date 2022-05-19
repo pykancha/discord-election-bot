@@ -18,6 +18,7 @@ def gen_embed(city_data_map):
     # funcs
     mayor_names = lambda x: [f"{i['candidate-name']}" for i in city_data_map[x]['mayor']]
     mayor_votes = lambda x: [f"{i['vote-numbers']}" for i in city_data_map[x]['mayor']]
+    percentage, vote_count = lambda x: city_data_map[x]['percentage'], lambda x: city_data_map[x]['vote_counted']
 
     embeds = []
     for city in city_data_map:
@@ -28,8 +29,16 @@ def gen_embed(city_data_map):
         for data in DATASET:
             header.append('   '.join([str(item).center(18, ' ') for item in data]))
         desc = '```'+'\n'.join(header) + '```'
+        ktm_leader_vote = int(mayor_votes(city)[0])
+        ktm_runnerup_vote = int(mayor_votes(city)[1])
         embed = discord.Embed(title = f'{city} Mayor', description = desc, color=discord.Color.green())
-        embed.set_footer(text="source: https://election.ekantipur.com?lng=eng")
+        embed.set_footer(
+            text=("\nTotal votes: 191, 186\n"
+                  f"Vote counted: {percentage(city)}% ({vote_count(city):,})\n"
+                  f"Vote Lead: + {(ktm_leader_vote - ktm_runnerup_vote):,}\n\n"
+                  "source: https://election.ekantipur.com?lng=eng"
+                 )
+        )
         embeds.append(embed)
     return embeds
 
