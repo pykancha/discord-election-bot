@@ -113,7 +113,7 @@ async def send_message(data, to_me=False):
                 try:
                     for embed in embed_messages:
                         await channel.send(embed=embed)
-                    await asyncio.sleep(1)
+                    await asyncio.sleep(3)
                 except Exception as e:
                     print(e, channel.guild.name)
 
