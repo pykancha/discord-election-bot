@@ -51,14 +51,14 @@ def get_ktm_votes():
     data = request_url(req_url)
     mayors = ['Balendra', 'Keshav', 'Shirjana', 'Suman', 'Madan', 'Samiksha', "Ram"]
     deputy = []#['Sunita', 'Rameshwore', 'Binita']
-    mayor_dict = filter_data(data, mayors[:2])
+    mayor_dict = filter_data(data, mayors)
     deputy_dict = filter_data(data, deputy)
     counted_votes = sum_total(mayor_dict)
     counted_votes += 0.2 * counted_votes
     total_votes = 1_91_186
     vote_percentage = round((counted_votes / total_votes) * 100, 2)
     return {
-      'mayor': mayor_dict[:-1],
+      'mayor': mayor_dict[:6],
       'deputy': deputy_dict,
       'vote_counted': int(counted_votes),
       'percentage': vote_percentage,
