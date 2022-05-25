@@ -69,15 +69,18 @@ async def on_guild_join(guild):
 
 async def election_info_updated(full=False):
     data = get_city_data_map(full=full)
-    with open('ktm_data.json', 'r') as rf:
-        ktm_cache_data = json.load(rf)
-    with open('election_data.json', 'r') as rf:
-        election_cache_data = json.load(rf)
+    cache_data = dict()
+    if not full:
+        with open('ktm_data.json', 'r') as rf:
+            cache_data = json.load(rf)
+    else:
+        with open('election_data.json', 'r') as rf:
+            cache_data = json.load(rf)
 
-    ktm_mayor_cache_data = ktm_cache_data['Kathmandu']['mayor']
+    ktm_mayor_cache_data = cache_data['Kathmandu']['mayor']
     ktm_mayor_data = data['Kathmandu']['mayor']
 
-    if full and election_cache_data != data:
+    if full and cache_data != data:
         with open('election_data.json', 'w') as wf:
             json.dump(data, wf)
         return data
@@ -99,6 +102,7 @@ async def send_message(data, to_me=False):
         try:
             for embed in embed_messages:
                 await user.send(embed=embed)
+                await asyncio.sleep(1)
         except Exception as e:
             print("dm fialed", e)
     

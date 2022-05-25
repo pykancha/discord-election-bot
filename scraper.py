@@ -58,7 +58,7 @@ def get_city_data_map(full=False):
             time.sleep(2)
         except Exception as e:
             print("Resolve Fetch error", e, city)
-            time.sleep(5)
+            time.sleep(3)
             resolved_map[city] = data()
     return resolved_map
 
