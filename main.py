@@ -25,10 +25,11 @@ async def on_ready():
         )
     election_updater.start()
 
-@tasks.loop(minutes=2)
+@tasks.loop(minutes=3)
 async def election_updater():
     updated_data = await election_info_updated()
     if updated_data:
+        os.system('git add . && git commit -m "updates data"')
         await send_message(updated_data)
     else:
         print("No updates")
@@ -39,7 +40,7 @@ async def election_updater():
     #else:
     #    print("No Full updates")
 
-    if updated_data or full_updated_data:
+    if full_updated_data:
         os.system('git add . && git commit -m "updates data"')
 
 
@@ -113,7 +114,7 @@ async def send_message(data, to_me=False):
                 try:
                     for embed in embed_messages:
                         await channel.send(embed=embed)
-                    await asyncio.sleep(3)
+                    await asyncio.sleep(2)
                 except Exception as e:
                     print(e, channel.guild.name)
 
