@@ -70,7 +70,7 @@ def get_bharatpur_votes():
     data = request_url(req_url)
     mayors = ['Renu', 'Vijay', 'Jaggannath', 'Prabin', 'Yog', "Purna", "Ganes", "Surya", "Vinod", "Yam", "Khem", "Surendra"]
     deputy = []
-    mayor_dict = filter_data(data, mayors[:2)
+    mayor_dict = filter_data(data, mayors[:2])
     deputy_dict = filter_data(data, deputy)
     counted_votes = sum_total(filter_data(data, mayors))
     counted_votes += 0.16 * counted_votes
