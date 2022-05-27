@@ -101,7 +101,7 @@ async def send_message(data, to_me=False):
         user = await client.fetch_user(user_id)
         try:
             for embed in embed_messages:
-                await user.send(embed=embed)
+                #await user.send(embed=embed)
                 await asyncio.sleep(1)
         except Exception as e:
             print("dm fialed", e)
@@ -117,7 +117,7 @@ async def send_message(data, to_me=False):
                 channels.append(channel.id)
                 try:
                     for embed in embed_messages:
-                        await channel.send(embed=embed)
+                        #await channel.send(embed=embed)
                     await asyncio.sleep(2)
                 except Exception as e:
                     print(e, channel.guild.name)
@@ -128,5 +128,5 @@ async def send_message(data, to_me=False):
             json.dump(channels, wf)
 
 if __name__ == "__main__":
-    keep_alive()
+    #keep_alive()
     client.run(TOKEN)
