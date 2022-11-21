@@ -8,11 +8,13 @@ def format_data_as_embed(data, parsed_cmd):
         parsed_cmd["district"],
         parsed_cmd["area"],
     )
+    print(f":: Formatting data {district} {area_no}")
     body = [
         "   ".join([heading.center(18, " ") for heading in "Name Votes".split(" ")]),
     ]
     sorted_data = sorted(data, key=lambda x: int(x["votes"]), reverse=True)
 
+    print(f":: Taking first 3 items from data of len {len(sorted_data)}")
     for entry in sorted_data[:3]:
         del entry["party"]
         body.append(
@@ -21,7 +23,9 @@ def format_data_as_embed(data, parsed_cmd):
         desc = "```" + "\n".join(body) + "```"
 
     embed = discord.Embed(
-        title=f"{district} {area_no}", description=desc, color=discord.Color.green()
+        title=f"{district.capitalize()} {area_no}",
+        description=desc,
+        color=discord.Color.green(),
     )
     leader_vote, runner_up_vote = int(data[0]["votes"]), int(data[1]["votes"])
     embed.set_footer(
@@ -55,8 +59,12 @@ def format_help_as_embed():
 def format_subscription_as_embed(subscriptions):
     body = ""
     for subscription in subscriptions:
-        district_name, area_no = subscription["district"], subscription["area"]
-        body += f"{district_name} : {area_no}\n"
+        state_no, district_name, area_no = (
+            subscription["pradesh"],
+            subscription["district"],
+            subscription["area"],
+        )
+        body += f"state: {state_no} {district_name} : {area_no}\n"
     embed = discord.Embed(
         title="Subscriptions", description=body, color=discord.Color.green()
     )

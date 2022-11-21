@@ -56,6 +56,7 @@ async def election_updater():
     try:
         print("requesting at ", bulk_list_url)
         data = requests.get(bulk_list_url).json()
+        data = get_top_3_of_all(data)
     except Exception as e:
         print("Error during fetching bulk lists", e)
         return False
@@ -77,7 +78,7 @@ async def election_updater():
     try:
         await update_guilds(cache_data, data)
     except Exception as e:
-        print("Failed syncing up. skipping this time", e)
+        print("Failed updating guilds", e)
 
 
 async def update_guilds(cache_data, data):
@@ -91,14 +92,26 @@ async def update_guilds(cache_data, data):
 
 async def need_for_sync(guild_id, subscription, cache_data, data):
     district_name, area_no = subscription["district"], subscription["area"]
-    cache_info = cache_data[district_name][f"constituency : {area_no}"]
+    try:
+        cache_info = cache_data[district_name][f"constituency : {area_no}"]
+    except Exception as e:
+        print(f"No cache data for {district_name} {area_no} {e}...")
+        return
     print(f":: processing {district_name} {area_no}")
-    new_info = data[district_name][f"constituency : {area_no}"]
+    try:
+        new_info = data[district_name][f"constituency : {area_no}"]
+    except Exception as e:
+        print(f"Failed obtaining data for {district_name} {area_no}... {e}")
+        return
+
     if cache_info != new_info:
-        guild = await bot.fetch_guild(guild_id)
+        print(f":: cached unmatched {district_name} {area_no}")
+        guild = bot.get_guild(int(guild_id))
+        print("Fechted guild", guild)
         channel = find_channel_to_send_msg(guild)
         embed = format_data_as_embed(new_info, subscription)
         await channel.send(embed=embed)
+    print(f":: cached matched {district_name} {area_no}")
 
 
 @bot.event
@@ -291,7 +304,7 @@ def is_subscribed(guild_id, parsed_cmd):
 
 def parse_command(command):
     cmd_parts = command.split(" ")
-    cmd_parts = [i.strip() for i in cmd_parts if i.strip()]
+    cmd_parts = [i.strip().lower() for i in cmd_parts if i.strip()]
     print(cmd_parts)
     try:
         state_no, district_name, area_no = cmd_parts[1], cmd_parts[2], cmd_parts[3]
@@ -337,13 +350,28 @@ def gen_subscription_embeds(subscriptions):
 
 
 def find_channel_to_send_msg(guild):
-    channel_to_send = guild.channels[-1]
+    channel_to_send = None
+    channels = []
     for channel in guild.channels:
+        print(":: scanning channel ", channel.name)
+        channels.append(channel)
         if channel.name == "election-updates":
             return channel
         elif channel.name == "general":
             channel_to_send = channel
-    return channel_to_send
+
+    print(f":: Scanned {len(channels)} channels")
+    return channel_to_send or channels[0]
+
+
+def get_top_3_of_all(data):
+    new_data = dict()
+    for district, constituency_dict in data.items():
+        new_constituency_dict = dict()
+        for constituency, data_list in constituency_dict.items():
+            new_constituency_dict[constituency] = data_list[:3]
+        new_data[district] = new_constituency_dict
+    return new_data
 
 
 if __name__ == "__main__":
