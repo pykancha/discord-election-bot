@@ -156,18 +156,18 @@ async def on_guild_remove(guild):
 
 
 @bot.command()
-async def sub(ctx, command):
+async def sub(ctx, *args):
     """
-    Subscribe to a constituency: eg (in quotes) "state 3 kathmandu 1"
+    Subscribe to a constituency: eg state 3 kathmandu 1
     """
-    parsed_cmd = parse_command(command)
+    parsed_cmd = parse_command(" ".join(args))
     print("parsed as ", parsed_cmd)
     data = validate_sub(parsed_cmd)
     if not parsed_cmd or not data:
         await ctx.send(
-            f"Invalid subscription: {command}\n"
+            f"Invalid subscription: {' '.join(args)}\n"
             "Try again or review syntax\n"
-            'Syntax eg: ?sub "state 3 kathmandu 10"'
+            "Syntax eg: ?sub state 3 kathmandu 10"
         )
         return
 
@@ -184,17 +184,17 @@ async def sub(ctx, command):
 
 
 @bot.command()
-async def unsub(ctx, command):
+async def unsub(ctx, *args):
     """
-    Unsubscribe to a constituency: eg (in quotes) "state 3 kathmandu 1"
+    Unsubscribe to a constituency: eg state 3 kathmandu 1
     """
-    parsed_cmd = parse_command(command)
+    parsed_cmd = parse_command(" ".join(args))
     print("parsed as ", parsed_cmd)
     if not parsed_cmd:
         await ctx.send(
-            f"Invalid subscription: {command}\n"
+            f"Invalid subscription: {' '.join(args)}\n"
             "Try again or review syntax\n"
-            'Syntax eg: ?unsub "state 3 kathmandu 10"'
+            "Syntax eg: ?unsub state 3 kathmandu 10"
         )
         return
 
@@ -209,18 +209,18 @@ async def unsub(ctx, command):
 
 
 @bot.command()
-async def check(ctx, command):
+async def check(ctx, *args):
     """
-    Check a given constituency: eg (in quotes)  "state 3 kathmandu 10"
+    Check a given constituency: eg state 3 kathmandu 10
     """
-    parsed_cmd = parse_command(command)
+    parsed_cmd = parse_command(" ".join(args))
     print("parsed as ", parsed_cmd)
     data = validate_sub(parsed_cmd)
     if not parsed_cmd or not data:
         await ctx.send(
-            f"Invalid area code: {command}\n"
+            f"Invalid area code: {' '.join(args)}\n"
             "Try again or review syntax\n"
-            'Syntax eg: ?sub "state 3 kathmandu 10"'
+            "Syntax eg: ?check state 3 kathmandu 10"
         )
         return
     try:
