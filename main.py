@@ -1,127 +1,350 @@
 # bot.py
-import os
-import json
-
 import asyncio
+import json
+import os
+
 import discord
-from discord.ext import tasks
+import requests
+from discord.ext import commands, tasks
 from dotenv import load_dotenv
 
-from scraper import gen_message, get_city_data_map, gen_embed
-from keep_alive import keep_alive
+from message_formatter import (
+    format_data_as_embed,
+    format_help_as_embed,
+    format_subscription_as_embed,
+)
 
 load_dotenv()
-TOKEN = os.getenv('DISCORD_TOKEN')
-#TODO
-# lead (+ lead) count
-# Graph and metadata
+TOKEN = os.getenv("DISCORD_TOKEN")
+URL = "http://localhost:8090"
 
-client = discord.Client()
+intents = discord.Intents.default()
+intents.message_content = True
+bot = commands.Bot(
+    command_prefix=("e?", "?"),
+    description="Election Updates for Federal and Provincial",
+    intents=intents,
+)
 
-@client.event
+
+@bot.event
 async def on_ready():
-    print(
-            f'{client.user} is connected to the following guild:\n'
-        )
+    print(f"{bot.user} is connected to the following guild:\n")
     election_updater.start()
+
 
 @tasks.loop(minutes=2)
 async def election_updater():
-    updated_data = await election_info_updated()
-    if updated_data:
-        await send_message(updated_data)
-    else:
-        print("No updates")
+    with open("db.json", "r") as rf:
+        subscription_data = json.load(rf)
+    subscriptions = []
+    for guild_id, subscription_list in subscription_data.items():
+        for subscription in subscription_list:
+            if subscription not in subscriptions:
+                subscriptions.append(subscription)
 
-    full_updated_data = await election_info_updated(full=True)
-    #if full_updated_data:
-    #    await send_message(full_updated_data, to_me=True)
-    #else:
-    #    print("No Full updates")
+    bulk_list = ""
+    for subscription in subscriptions:
+        state_no, district = subscription["pradesh"], subscription["district"]
+        bulk_list += f"pradesh-{state_no}/district-{district},"
 
-    if updated_data or full_updated_data:
-        os.system('git add . && git commit -m "updates data"')
+    # remove last comma
+    bulk_list = bulk_list[:-1]
+    bulk_list_url = f"{URL}/bulk?list={bulk_list}"
 
-
-@client.event
-async def on_guild_join(guild):
-    print("Joining new guild", guild.name)
-    with open('ktm_data.json', 'r') as rf:
-        ktm_cache_data = json.load(rf)
-    with open('channelids.json', 'r') as rf:
-        channel_ids = json.load(rf)
-
-    embed_messages = gen_embed(ktm_cache_data)
-    for channel in guild.channels:
-        if channel.name == 'election-updates':
-            channel_ids.append(channel.id)
-            try:
-                for embed in embed_messages:
-                    await channel.send(embed=embed)
-                    print("New guild message sent")
-                    await asyncio.sleep(1)
-            except Exception as e:
-                print(e, channel.guild.name)
-
-    with open('channelids.json', 'w') as wf:
-        json.dump(channel_ids, wf)
-
-async def election_info_updated(full=False):
-    data = get_city_data_map(full=full)
-    with open('ktm_data.json', 'r') as rf:
-        ktm_cache_data = json.load(rf)
-    with open('election_data.json', 'r') as rf:
-        election_cache_data = json.load(rf)
-
-    ktm_mayor_cache_data = ktm_cache_data['Kathmandu']['mayor']
-    ktm_mayor_data = data['Kathmandu']['mayor']
-
-    if full and election_cache_data != data:
-        with open('election_data.json', 'w') as wf:
-            json.dump(data, wf)
-        return data
-    elif ktm_mayor_cache_data != ktm_mayor_data:
-        with open('ktm_data.json', 'w') as wf:
-            json.dump(data, wf)
-        return data
-    else:
+    data = None
+    try:
+        print("requesting at ", bulk_list_url)
+        data = requests.get(bulk_list_url).json()
+    except Exception as e:
+        print("Error during fetching bulk lists", e)
         return False
 
-async def send_message(data, to_me=False):
-    embed_messages = gen_embed(data)
-    user_ids = [528240871481540611, 397648789793669121]
-    if to_me:
-        user_ids = user_ids[:1]
+    cache_data = {}
+    try:
+        with open("cache.json", "r") as rf:
+            cache_data = json.load(rf)
+    except Exception as e:
+        print("Failed loading cache", e)
 
-    for user_id in user_ids:
-        user = await client.fetch_user(user_id)
-        try:
-            for embed in embed_messages:
-                await user.send(embed=embed)
-        except Exception as e:
-            print("dm fialed", e)
-    
-    if to_me:
+    if cache_data == data:
+        print("Cache Matched: No updates")
         return
 
-    print(len(client.guilds))
-    channels = []
-    for guild in client.guilds:
-        for channel in guild.channels:
-            if channel.name == 'election-updates':
-                channels.append(channel.id)
-                try:
-                    for embed in embed_messages:
-                        await channel.send(embed=embed)
-                    await asyncio.sleep(1)
-                except Exception as e:
-                    print(e, channel.guild.name)
+    with open("cache.json", "w") as wf:
+        json.dump(data, wf)
 
-    # update channel ids
-    if channels:
-        with open('channelids.json', 'w') as wf:
-            json.dump(channels, wf)
+    try:
+        await update_guilds(cache_data, data)
+    except Exception as e:
+        print("Failed syncing up. skipping this time", e)
+
+
+async def update_guilds(cache_data, data):
+    with open("db.json", "r") as rf:
+        subscription_data = json.load(rf)
+
+    for guild_id, subscription_list in subscription_data.items():
+        for subscription in subscription_list:
+            await need_for_sync(guild_id, subscription, cache_data, data)
+
+
+async def need_for_sync(guild_id, subscription, cache_data, data):
+    district_name, area_no = subscription["district"], subscription["area"]
+    cache_info = cache_data[district_name][f"constituency : {area_no}"]
+    print(f":: processing {district_name} {area_no}")
+    new_info = data[district_name][f"constituency : {area_no}"]
+    if cache_info != new_info:
+        guild = await bot.fetch_guild(guild_id)
+        channel = find_channel_to_send_msg(guild)
+        embed = format_data_as_embed(new_info, subscription)
+        await channel.send(embed=embed)
+
+
+@bot.event
+async def on_guild_join(guild):
+    with open("db.json", "r") as rf:
+        subscription_data = json.load(rf)
+
+    subscriptions = [
+        {"pradesh": "7", "district": "dadeldhura", "area": "1"},
+        {"pradesh": "3", "district": "chitwan", "area": "2"},
+    ]
+
+    channel = find_channel_to_send_msg(guild)
+
+    try:
+        await channel.send(embed=format_help_as_embed())
+        for embed in gen_subscription_embeds(subscriptions):
+            await channel.send(embed=embed)
+            print("New guild message sent")
+            await asyncio.sleep(1)
+    except Exception as e:
+        print(e, channel.guild.name)
+
+    subscription_data[str(guild.id)] = subscriptions
+
+    with open("db.json", "w") as wf:
+        json.dump(subscription_data, wf)
+
+
+@bot.event
+async def on_guild_remove(guild):
+    with open("db.json", "r") as rf:
+        subscription_data = json.load(rf)
+
+    try:
+        del subscription_data[str(guild.id)]
+    except Exception as e:
+        print("failed deleting guild records", e)
+
+    with open("db.json", "w") as wf:
+        json.dump(subscription_data, wf)
+
+
+@bot.command()
+async def sub(ctx, command):
+    """
+    Subscribe to a constituency: eg (in quotes) "state 3 kathmandu 1"
+    """
+    parsed_cmd = parse_command(command)
+    print("parsed as ", parsed_cmd)
+    data = validate_sub(parsed_cmd)
+    if not parsed_cmd or not data:
+        await ctx.send(
+            f"Invalid subscription: {command}\n"
+            "Try again or review syntax\n"
+            'Syntax eg: ?sub "state 3 kathmandu 10"'
+        )
+        return
+
+    if is_subscribed(ctx.channel.guild.id, parsed_cmd):
+        await ctx.send("❗ You are already subscribed.")
+        return
+
+    if add_subscription(ctx.channel.guild.id, parsed_cmd):
+        await ctx.send("✅ Successfully subscribed.")
+        embed = format_data_as_embed(data, parsed_cmd)
+        await ctx.send(embed=embed)
+    else:
+        await ctx.send("❌ Something went wrong our side. Please try again.")
+
+
+@bot.command()
+async def unsub(ctx, command):
+    """
+    Unsubscribe to a constituency: eg (in quotes) "state 3 kathmandu 1"
+    """
+    parsed_cmd = parse_command(command)
+    print("parsed as ", parsed_cmd)
+    if not parsed_cmd:
+        await ctx.send(
+            f"Invalid subscription: {command}\n"
+            "Try again or review syntax\n"
+            'Syntax eg: ?unsub "state 3 kathmandu 10"'
+        )
+        return
+
+    if not is_subscribed(ctx.channel.guild.id, parsed_cmd):
+        await ctx.send("❗ You never subscribed to this region.")
+        return
+
+    if remove_subscription(ctx.channel.guild.id, parsed_cmd):
+        await ctx.send("✅ Successfully unsubscribed.")
+    else:
+        await ctx.send("❌ Something went wrong our side. Please try again.")
+
+
+@bot.command()
+async def check(ctx, command):
+    """
+    Check a given constituency: eg (in quotes)  "state 3 kathmandu 10"
+    """
+    parsed_cmd = parse_command(command)
+    print("parsed as ", parsed_cmd)
+    data = validate_sub(parsed_cmd)
+    if not parsed_cmd or not data:
+        await ctx.send(
+            f"Invalid area code: {command}\n"
+            "Try again or review syntax\n"
+            'Syntax eg: ?sub "state 3 kathmandu 10"'
+        )
+        return
+    try:
+        embed = format_data_as_embed(data, parsed_cmd)
+        await ctx.send(embed=embed)
+    except Exception as e:
+        print("Cannot output check: ", e)
+        await ctx.send("❌ Something went wrong our side. Please try again.")
+
+
+@bot.command()
+async def listsub(ctx):
+    """
+    List all subscriptions
+    """
+    subscriptions = get_subscriptions(ctx.channel.guild.id)
+    if not subscriptions:
+        return
+    await ctx.send(embed=format_subscription_as_embed(subscriptions))
+
+
+def get_subscriptions(guild_id):
+    guild_id = str(guild_id)
+    with open("db.json", "r") as rf:
+        subscription_data = json.load(rf)
+    try:
+        subs = subscription_data[guild_id]
+        return subs
+    except Exception as e:
+        print("❌ Something wrong happened, remove and reinvite the bot", e)
+
+
+def add_subscription(guild_id, parsed_cmd):
+    guild_id = str(guild_id)
+    with open("db.json", "r") as rf:
+        subscription_data = json.load(rf)
+    print(":: Adding sub, sub data", subscription_data)
+    try:
+        prev_subs = subscription_data[guild_id]
+        prev_subs.append(parsed_cmd)
+        subscription_data[guild_id] = prev_subs
+    except Exception as e:
+        print("Failed adding subscription", e)
+        return False
+
+    with open("db.json", "w") as wf:
+        json.dump(subscription_data, wf)
+    return True
+
+
+def remove_subscription(guild_id, parsed_cmd):
+    guild_id = str(guild_id)
+    with open("db.json", "r") as rf:
+        subscription_data = json.load(rf)
+    try:
+        prev_subs = subscription_data[guild_id]
+        prev_subs.remove(parsed_cmd)
+        subscription_data[guild_id] = prev_subs
+    except Exception as e:
+        print("Failed removing subscription", e)
+        return False
+
+    with open("db.json", "w") as wf:
+        json.dump(subscription_data, wf)
+    return True
+
+
+def is_subscribed(guild_id, parsed_cmd):
+    guild_id = str(guild_id)
+    with open("db.json", "r") as rf:
+        subscription_data = json.load(rf)
+    try:
+        prev_subs = subscription_data[guild_id]
+        return parsed_cmd in prev_subs
+    except Exception as e:
+        print("Failed checking subscription", e)
+        return False
+
+    return True
+
+
+def parse_command(command):
+    cmd_parts = command.split(" ")
+    cmd_parts = [i.strip() for i in cmd_parts if i.strip()]
+    print(cmd_parts)
+    try:
+        state_no, district_name, area_no = cmd_parts[1], cmd_parts[2], cmd_parts[3]
+        return {"pradesh": state_no, "district": district_name, "area": area_no}
+    except Exception as e:
+        print("Error during parsing command", e)
+        return False
+
+
+def validate_sub(parsed_command):
+    print("validating", parsed_command)
+    try:
+        state_no, district, area_no = (
+            parsed_command["pradesh"],
+            parsed_command["district"],
+            parsed_command["area"],
+        )
+        url = make_url(state_no, district)
+        print("requesting at ", url)
+        data = requests.get(url).json()
+        print("Got data", len(data))
+        data = data[f"constituency : {area_no}"]
+        return data
+    except Exception as e:
+        print("Error during validating sub", e)
+        return False
+
+
+def make_url(state_no, district):
+    url_f = f"{URL}/area?name=pradesh-{state_no}/district-{district}"
+    return url_f
+
+
+def gen_subscription_embeds(subscriptions):
+    embeds = []
+    for parsed_cmd in subscriptions:
+        data = validate_sub(parsed_cmd)
+        if not data:
+            continue
+        embed = format_data_as_embed(data, parsed_cmd)
+        embeds.append(embed)
+    return embeds
+
+
+def find_channel_to_send_msg(guild):
+    channel_to_send = guild.channels[-1]
+    for channel in guild.channels:
+        if channel.name == "election-updates":
+            return channel
+        elif channel.name == "general":
+            channel_to_send = channel
+    return channel_to_send
+
 
 if __name__ == "__main__":
-    keep_alive()
-    client.run(TOKEN)
+    bot.run(TOKEN)

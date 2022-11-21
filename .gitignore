@@ -1,5 +1,5 @@
 /__pycache__/
 /.env
 /.ropeproject/
-pyproject.toml
-poetry.lock
+cache.json
+db.json
