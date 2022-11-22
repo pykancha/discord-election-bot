@@ -76,21 +76,32 @@ async def election_updater():
         json.dump(data, wf)
 
     try:
-        await update_guilds(cache_data, data)
+        await update_guilds(subscriptions, cache_data, data)
     except Exception as e:
         print("Failed updating guilds", e)
 
 
-async def update_guilds(cache_data, data):
+async def update_guilds(subscriptions, cache_data, data):
     with open("db.json", "r") as rf:
         subscription_data = json.load(rf)
 
+    for subscription in subscriptions:
+        guild_ids_with_sub = await filter_guild_id_with_sub(
+            subscription, subscription_data
+        )
+        await need_for_sync(guild_ids_with_sub, subscription, cache_data, data)
+
+
+async def filter_guild_id_with_sub(subscription_to_filter, subscription_data):
+    guild_ids = []
     for guild_id, subscription_list in subscription_data.items():
         for subscription in subscription_list:
-            await need_for_sync(guild_id, subscription, cache_data, data)
+            if subscription_to_filter == subscription:
+                guild_ids.append(guild_id)
+    return guild_ids
 
 
-async def need_for_sync(guild_id, subscription, cache_data, data):
+async def need_for_sync(guild_ids, subscription, cache_data, data):
     district_name, area_no = subscription["district"], subscription["area"]
     try:
         cache_info = cache_data[district_name][f"constituency : {area_no}"]
@@ -106,12 +117,15 @@ async def need_for_sync(guild_id, subscription, cache_data, data):
 
     if cache_info != new_info:
         print(f":: cached unmatched {district_name} {area_no}")
-        guild = bot.get_guild(int(guild_id))
-        print("Fechted guild", guild)
-        channel = find_channel_to_send_msg(guild)
-        embed = format_data_as_embed(new_info, subscription)
-        await channel.send(embed=embed)
-    print(f":: cached matched {district_name} {area_no}")
+        for guild_id in guild_ids:
+            guild = bot.get_guild(int(guild_id))
+            print("Fechted guild", guild)
+            channel = find_channel_to_send_msg(guild)
+            embed = format_data_as_embed(new_info, subscription)
+            await channel.send(embed=embed)
+
+    else:
+        print(f":: cached matched {district_name} {area_no}")
 
 
 @bot.event
