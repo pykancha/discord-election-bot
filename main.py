@@ -117,11 +117,11 @@ async def need_for_sync(guild_ids, subscription, cache_data, data):
 
     if cache_info != new_info:
         print(f":: cached unmatched {district_name} {area_no}")
+        embed = format_data_as_embed(new_info, subscription)
         for guild_id in guild_ids:
             guild = bot.get_guild(int(guild_id))
             print("Fechted guild", guild)
             channel = find_channel_to_send_msg(guild)
-            embed = format_data_as_embed(new_info, subscription)
             await channel.send(embed=embed)
 
     else:
