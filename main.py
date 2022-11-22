@@ -369,9 +369,9 @@ def find_channel_to_send_msg(guild):
     for channel in guild.channels:
         print(":: scanning channel ", channel.name)
         channels.append(channel)
-        if channel.name == "election-updates":
+        if channel.name.lower() == "election-updates":
             return channel
-        elif channel.name == "general":
+        elif channel.name.lower() == "general":
             channel_to_send = channel
 
     print(f":: Scanned {len(channels)} channels")
