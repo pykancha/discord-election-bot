@@ -15,8 +15,20 @@ def format_data_as_embed(data, parsed_cmd):
     sorted_data = sorted(data, key=lambda x: int(x["votes"]), reverse=True)
 
     print(f":: Taking first 3 items from data of len {len(sorted_data)}")
+
+    winner_declared = False
+    try:
+        winner_declared = data[0]["winner_declared"]
+    except Exception as e:
+        print("Failed deleting dict keys for formatting", e)
+
     for entry in sorted_data[:3]:
-        del entry["party"]
+        try:
+            del entry["party"]
+            del entry["winner_declared"]
+        except Exception as e:
+            print("Failed deleting dict keys for formatting", e)
+
         body.append(
             "   ".join([str(value).center(18, " ") for key, value in entry.items()])
         )
@@ -27,10 +39,15 @@ def format_data_as_embed(data, parsed_cmd):
         description=desc,
         color=discord.Color.green(),
     )
+    winner_text = ""
+    if winner_declared:
+        winner = data[0]["name"]
+        winner_text = f"{winner} wins by "
+
     leader_vote, runner_up_vote = int(data[0]["votes"]), int(data[1]["votes"])
     embed.set_footer(
         text=(
-            f"Vote Lead: + {(leader_vote - runner_up_vote):,}\n\n"
+            f"{winner_text}Vote Lead: + {(leader_vote - runner_up_vote):,}\n\n"
             "source: https://election.ekantipur.com?lng=eng\n\n"
             "Bot Code: https://github.com/pykancha/discord-election-bot"
         )
